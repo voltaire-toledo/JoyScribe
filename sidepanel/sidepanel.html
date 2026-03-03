@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>JoyScribe-UC</title>
+    <link rel="stylesheet" href="./sidepanel.css" />
+  </head>
+  <body>
+    <main class="app" aria-label="JoyScribe-UC side panel">
+      <header class="header">
+        <div class="header__titles">
+          <h1 class="header__title">JoyScribe/h1>
+          <p class="header__subtitle">Urgent Care Edition • Ephemeral</p>
+        </div>
+
+        <div class="status" aria-live="polite">
+          <span class="status__dot" id="statusDot" aria-hidden="true"></span>
+          <span class="status__text" id="statusText">Idle</span>
+        </div>
+      </header>
+
+      <section class="controls" aria-label="Recording controls">
+        <button class="btn btn--primary" id="recordBtn" type="button">
+          Start Recording
+        </button>
+
+        <div class="controls__row">
+          <button class="btn" id="copyBtn" type="button" disabled>
+            Copy to Clipboard
+          </button>
+          <button class="btn btn--danger" id="clearBtn" type="button">
+            Clear
+          </button>
+        </div>
+
+        <p class="hint" id="hintText">
+          Tip: Record the encounter, then stop to generate a SOAP note.
+        </p>
+
+        <div class="alert" id="alertBox" role="alert" hidden>
+          <p class="alert__text" id="alertText"></p>
+        </div>
+      </section>
+
+      <section class="output" aria-label="Generated SOAP note">
+        <label class="label" for="noteTextarea">SOAP Note (editable)</label>
+        <textarea
+          id="noteTextarea"
+          class="textarea"
+          placeholder="Generated note will appear here…"
+          spellcheck="true"
+        ></textarea>
+
+        <details class="details" id="transcriptDetails">
+          <summary class="details__summary">Transcript (optional)</summary>
+          <div class="details__body">
+            <pre class="transcript" id="transcriptPre"></pre>
+          </div>
+        </details>
+      </section>
+
+      <footer class="footer">
+        <p class="footer__text">
+          MVP mock mode: no external API calls. Do not rely on output for clinical decisions.
+        </p>
+      </footer>
+    </main>
+
+    <script type="module" src="./sidepanel.js"></script>
+  </body>
+</html>

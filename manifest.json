@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "JoyScribe-UC",
+  "version": "0.1.0",
+  "description": "AI medical assistant and scribe for urgent care. Records audio, mocks STT+LLM, and generates a SOAP note in a side panel.",
+  "action": {
+    "default_title": "JoyScribe-UC"
+  },
+  "permissions": ["sidePanel", "microphone", "activeTab"],
+  "background": {
+    "service_worker": "background/background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "icons": {},
+  "minimum_chrome_version": "114"
+}
