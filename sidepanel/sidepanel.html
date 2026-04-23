@@ -10,17 +10,71 @@
     <main class="app" aria-label="JoyScribe-UC side panel">
       <header class="header">
         <div class="header__titles">
-          <h1 class="header__title">JoyScribe/h1>
-          <p class="header__subtitle">Urgent Care Edition • Ephemeral</p>
+          <h1 class="header__title">JoyScribe</h1>
+          <p class="header__subtitle">Urgent Care Edition • Local Drafts</p>
         </div>
 
-        <div class="status" aria-live="polite">
-          <span class="status__dot" id="statusDot" aria-hidden="true"></span>
-          <span class="status__text" id="statusText">Idle</span>
-        </div>
+        <button class="status-button" id="statusButton" type="button" aria-live="polite">
+          <svg
+            class="status-button__icon"
+            id="statusButtonIcon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path id="statusButtonIconPath"></path>
+          </svg>
+        </button>
       </header>
 
       <section class="controls" aria-label="Recording controls">
+        <div class="encounter-panel" aria-label="Encounter workspace">
+          <div class="encounter-panel__header">
+            <div>
+              <p class="encounter-panel__eyebrow">Encounter Workspace</p>
+              <p class="encounter-panel__meta" id="encounterMeta">
+                Open encounters are saved locally until you close them.
+              </p>
+            </div>
+            <div class="encounter-panel__actions">
+              <button class="btn btn--compact" id="newEncounterBtn" type="button">
+                New Encounter
+              </button>
+              <button class="btn btn--danger btn--compact" id="closeEncounterBtn" type="button">
+                Close Encounter
+              </button>
+            </div>
+          </div>
+
+          <label class="field">
+            <span class="field__label">Current Encounter</span>
+            <select class="field__control" id="encounterSelect" name="encounterSelect"></select>
+          </label>
+
+          <label class="field">
+            <span class="field__label">Patient Label</span>
+            <input
+              class="field__control"
+              id="encounterLabelInput"
+              name="encounterLabel"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Room 2 • sore throat"
+            />
+          </label>
+
+          <label class="field field--textarea field--compact-textarea">
+            <span class="field__label">Encounter Context</span>
+            <textarea
+              class="field__control field__control--textarea field__control--compact"
+              id="encounterContextInput"
+              name="encounterContext"
+              placeholder="Optional working context, triage details, meds, or visit goals to include in note generation."
+              spellcheck="true"
+            ></textarea>
+          </label>
+        </div>
+
         <button class="btn btn--primary" id="recordBtn" type="button">
           Start Recording
         </button>
@@ -30,21 +84,21 @@
             Copy to Clipboard
           </button>
           <button class="btn btn--danger" id="clearBtn" type="button">
-            Clear
+            Clear Draft
           </button>
         </div>
 
         <p class="hint" id="hintText">
           Tip: Record the encounter, then stop to generate a SOAP note.
         </p>
+        <p class="meta" id="providerSummary">AI provider not configured.</p>
 
         <div class="alert" id="alertBox" role="alert" hidden>
           <p class="alert__text" id="alertText"></p>
         </div>
       </section>
 
-      <section class="output" aria-label="Generated SOAP note">
-        <label class="label" for="noteTextarea">SOAP Note (editable)</label>
+      <section class="output" aria-label="Assistant chat">
         <textarea
           id="noteTextarea"
           class="textarea"
@@ -62,10 +116,219 @@
 
       <footer class="footer">
         <p class="footer__text">
-          MVP mock mode: no external API calls. Do not rely on output for clinical decisions.
+          Prototype mode: transcript generation is still mocked. Open encounter drafts stay only in local browser storage until closed. Notes may be sent to your configured provider. Do not rely on output for clinical decisions.
         </p>
+        <div class="footer__actions">
+          <button
+            class="icon-button"
+            id="settingsBtn"
+            type="button"
+            aria-label="Open settings"
+            title="Open settings"
+          >
+            <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M19.14 12.94C19.18 12.64 19.2 12.33 19.2 12C19.2 11.67 19.18 11.36 19.14 11.06L21.03 9.59C21.2 9.46 21.25 9.22 21.15 9.03L19.35 5.92C19.25 5.73 19.03 5.65 18.83 5.71L16.6 6.61C16.12 6.24 15.6 5.93 15.03 5.69L14.7 3.31C14.67 3.1 14.49 2.95 14.28 2.95H10.68C10.47 2.95 10.29 3.1 10.26 3.31L9.93 5.69C9.36 5.93 8.84 6.24 8.36 6.61L6.13 5.71C5.93 5.65 5.71 5.73 5.61 5.92L3.81 9.03C3.71 9.22 3.76 9.46 3.93 9.59L5.82 11.06C5.78 11.36 5.76 11.68 5.76 12C5.76 12.32 5.78 12.64 5.82 12.94L3.93 14.41C3.76 14.54 3.71 14.78 3.81 14.97L5.61 18.08C5.71 18.27 5.93 18.35 6.13 18.29L8.36 17.39C8.84 17.76 9.36 18.07 9.93 18.31L10.26 20.69C10.29 20.9 10.47 21.05 10.68 21.05H14.28C14.49 21.05 14.67 20.9 14.7 20.69L15.03 18.31C15.6 18.07 16.12 17.76 16.6 17.39L18.83 18.29C19.03 18.35 19.25 18.27 19.35 18.08L21.15 14.97C21.25 14.78 21.2 14.54 21.03 14.41L19.14 12.94ZM12.48 15.6C10.49 15.6 8.88 13.99 8.88 12C8.88 10.01 10.49 8.4 12.48 8.4C14.47 8.4 16.08 10.01 16.08 12C16.08 13.99 14.47 15.6 12.48 15.6Z"
+              ></path>
+            </svg>
+          </button>
+          <button
+            class="icon-button"
+            id="themeToggleBtn"
+            type="button"
+            aria-pressed="false"
+            aria-label="Switch to light mode"
+            title="Switch to light mode"
+          >
+            <span class="theme-toggle__icon" id="themeToggleIcon" aria-hidden="true">☾</span>
+          </button>
+        </div>
       </footer>
     </main>
+
+    <section class="settings-overlay" id="settingsOverlay" hidden>
+      <div class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-panel__header">
+          <div>
+            <h2 class="settings-panel__title" id="settingsTitle">AI Settings</h2>
+            <p class="settings-panel__subtitle">
+              Provider credentials stay in local extension storage. System instructions are fully editable.
+            </p>
+          </div>
+          <button
+            class="icon-button"
+            id="settingsCloseBtn"
+            type="button"
+            aria-label="Close settings"
+            title="Close settings"
+          >
+            <span class="settings-close__icon" aria-hidden="true">✕</span>
+          </button>
+        </div>
+
+        <form class="settings-form" id="settingsForm">
+          <label class="field">
+            <span class="field__label">Provider</span>
+            <select class="field__control" id="providerSelect" name="provider">
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="azure">Azure OpenAI</option>
+              <option value="ollama">Ollama</option>
+            </select>
+          </label>
+
+          <section class="provider-fields" data-provider-config="openai">
+            <label class="field">
+              <span class="field__label">OpenAI API Key</span>
+              <input
+                class="field__control"
+                id="openaiApiKeyInput"
+                name="openaiApiKey"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="sk-..."
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">OpenAI Model</span>
+              <input
+                class="field__control"
+                id="openaiModelInput"
+                name="openaiModel"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="gpt-4o-mini"
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">OpenAI Base URL</span>
+              <input
+                class="field__control"
+                id="openaiBaseUrlInput"
+                name="openaiBaseUrl"
+                type="url"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="https://api.openai.com/v1"
+              />
+            </label>
+          </section>
+
+          <section class="provider-fields" data-provider-config="gemini" hidden>
+            <label class="field">
+              <span class="field__label">Gemini API Key</span>
+              <input
+                class="field__control"
+                id="geminiApiKeyInput"
+                name="geminiApiKey"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="AIza..."
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">Gemini Model</span>
+              <input
+                class="field__control"
+                id="geminiModelInput"
+                name="geminiModel"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="gemini-2.5-flash"
+              />
+            </label>
+          </section>
+
+          <section class="provider-fields" data-provider-config="azure" hidden>
+            <label class="field">
+              <span class="field__label">Azure API Key</span>
+              <input
+                class="field__control"
+                id="azureApiKeyInput"
+                name="azureApiKey"
+                type="password"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="Azure API key"
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">Azure Endpoint</span>
+              <input
+                class="field__control"
+                id="azureEndpointInput"
+                name="azureEndpoint"
+                type="url"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="https://your-resource.openai.azure.com"
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">Deployment Name</span>
+              <input
+                class="field__control"
+                id="azureModelInput"
+                name="azureModel"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="gpt-4o-mini"
+              />
+            </label>
+          </section>
+
+          <section class="provider-fields" data-provider-config="ollama" hidden>
+            <label class="field">
+              <span class="field__label">Ollama Endpoint</span>
+              <input
+                class="field__control"
+                id="ollamaEndpointInput"
+                name="ollamaEndpoint"
+                type="url"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="http://127.0.0.1:11434"
+              />
+            </label>
+            <label class="field">
+              <span class="field__label">Ollama Model</span>
+              <input
+                class="field__control"
+                id="ollamaModelInput"
+                name="ollamaModel"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="llama3.1:8b"
+              />
+            </label>
+          </section>
+
+          <label class="field field--textarea">
+            <span class="field__label">System Instructions</span>
+            <textarea
+              class="field__control field__control--textarea"
+              id="systemPromptInput"
+              name="systemPrompt"
+              spellcheck="false"
+            ></textarea>
+          </label>
+
+          <div class="settings-form__actions">
+            <button class="btn" id="resetPromptBtn" type="button">Reset Instructions</button>
+            <div class="settings-form__actions-end">
+              <button class="btn" id="cancelSettingsBtn" type="button">Cancel</button>
+              <button class="btn btn--primary" id="saveSettingsBtn" type="submit">Save Settings</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
 
     <script type="module" src="./sidepanel.js"></script>
   </body>
