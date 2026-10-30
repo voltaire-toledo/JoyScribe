@@ -1,99 +1,122 @@
-# JoyScribe MVP Testing Plan
+# JoyScribe-UC Testing Plan
 
-This is the fastest useful way to test the current MVP without overbuilding infrastructure too early.
+This plan reflects the current prototype as of 2026-06-06. There is no automated test harness in the repository yet, so manual extension testing is required after behavior changes.
 
-## Recommended Test Stack
+## Current Test Stack
 
-1. Use deterministic smoke checks for storage, prompt construction, and provider configuration.
-2. Use manual browser workflow tests for recording, encounter switching, and purge behavior.
-3. Use Ollama for local end-to-end note generation runs before spending on cloud providers.
-4. Use archived "ideal" encounter chats and charting-assistant outputs as a gold set for regression review.
+1. Manual Chrome extension workflow tests.
+2. Provider happy-path and failure-path checks.
+3. Provider happy-path checks with API-key authentication.
+4. Future deterministic unit tests for storage normalization, settings normalization, and provider payload construction.
+5. Future golden-set review using archived synthetic or approved de-identified urgent care encounters.
 
-## What To Test First
+## Required Manual Smoke Test
 
-### 1. Workflow Reliability
+Run this after changes to `manifest.json`, `background/`, `sidepanel/`, or `services/`.
 
-Run these every time we change the side panel workflow:
+1. Load the unpacked extension from `C:\Users\Jigs\CODE\VT-JoyScribe`.
+2. Click the extension action and confirm the side panel opens.
+3. Confirm one blank encounter exists on first load.
+4. Enter a patient label and encounter context.
+5. Close and reopen the side panel and confirm the draft restores.
+6. Create a second encounter, switch between encounters, and confirm label, context, note, and transcript do not mix.
+7. Clear the active draft and confirm the label remains while context, note, and transcript are cleared.
+8. Close an encounter and confirm its draft disappears from the switcher.
+9. Toggle light/dark mode and confirm the selection persists.
+10. Open settings, change provider fields, cancel, and confirm unsaved edits are discarded.
+11. Save settings and confirm provider summary updates.
 
-- Open the extension and verify one blank encounter is available on first load.
-- Enter a patient label and context, close the panel, reopen it, and confirm the draft is restored.
-- Create two encounters, switch back and forth, and confirm each draft restores the correct context, transcript, and note.
-- Clear the active draft and confirm the label remains but context, transcript, and note are removed.
-- Close an encounter and confirm its local draft is permanently removed from the encounter switcher.
-- Start recording, hide the panel, and confirm recording stops safely with an actionable error.
-- Record and stop with a configured provider, then confirm transcript and SOAP note populate the correct encounter.
+## Recording Workflow Test
 
-### 2. Provider Coverage
+Run this after changes to recording, visibility handling, note generation, or provider settings.
 
-For each supported provider, run one happy-path and one failure-path test:
+1. Configure a provider with OpenAI API-key or Gemini API-key authentication.
+2. Start recording and grant microphone permission.
+3. Stop recording.
+4. Confirm the UI enters processing state.
+5. Confirm the transcript panel is populated with the mock transcript.
+6. Confirm the note textarea is populated by the selected provider.
+7. Confirm the note follows these exact section headers:
+   - `SUBJECTIVE`
+   - `OBJECTIVE`
+   - `ASSESSMENT`
+   - `PLAN`
+8. Confirm the note can be copied to the clipboard.
+9. Start recording again, hide the panel, and confirm recording is stopped with an actionable error.
 
-- OpenAI
-- Gemini
-- Azure OpenAI
-- Ollama
+## Provider Coverage
+
+For each implemented API-key provider mode, run one successful note-generation test and one failure-path test.
+
+- OpenAI API key
+- Gemini API key
+
+For selectable subscription modes, confirm note generation is blocked with an actionable message until secure forwarding exists.
+
+- ChatGPT subscription
+- Gemini subscription
 
 Failure cases to check:
 
-- Missing API key or endpoint
-- Invalid model name
-- Offline network state for cloud providers
-- Unreachable Ollama endpoint
+- Missing API key.
+- Invalid model name.
+- Offline network state for cloud providers.
+- Provider returns non-JSON or empty content.
 
-### 3. Prompt Quality
+## Storage and Privacy Checks
 
-Use archived ideal encounters as a simple regression set:
+Verify the following whenever storage behavior changes:
 
-- Save 10 to 20 representative urgent care transcripts.
-- Pair each transcript with a clinician-approved "ideal" SOAP note.
-- Include a few context-heavy cases where the context field should materially change the note.
-- Re-run the same set whenever system instructions or provider behavior changes.
+- Audio remains in memory only and is cleared after processing or cancellation.
+- `joyscribe-encounter-state` stores only open encounter drafts.
+- `joyscribe-ai-settings` stores provider settings and editable system instructions.
+- Closing an encounter removes that encounter's local draft data.
+- Clearing a draft removes context, note, and transcript from the active encounter.
+- No new PHI-like data is written to console logs, analytics, URL query strings, or long-lived storage.
 
-Review each generated note for:
+## Prompt Quality Regression Set
 
-- Grounding: no invented diagnoses, vitals, meds, or tests
-- Completeness: key symptoms, exam details, and plan elements captured when present
-- Structure: exact `SUBJECTIVE`, `OBJECTIVE`, `ASSESSMENT`, `PLAN` headers
-- Restraint: missing information marked as `Not documented`
-- Edit burden: clinician should need light cleanup, not major rewriting
+Use synthetic or approved de-identified examples only until a HIPAA-aligned process is defined.
 
-## Best Near-Term Setup
+Maintain 10 to 20 representative urgent care transcripts:
 
-Ollama is the best first test target because it keeps the loop cheap and local:
+- Sore throat or URI.
+- Abdominal pain.
+- UTI symptoms.
+- Laceration follow-up.
+- Rash or allergic reaction.
+- Fever in child.
+- Chest pain sent to ED.
+- Work note or return-to-work visit.
+- Medication refill request.
+- Sparse documentation where the model must avoid guessing.
 
-- Start with one local model for daily smoke tests.
-- Keep one cloud provider configured as a realism check.
-- Use the same archived transcript set against both local and cloud runs to compare note quality and stability.
+Review generated notes for:
 
-## Suggested Golden Dataset Shape
+- Grounding: no invented diagnoses, vitals, meds, tests, or follow-up details.
+- Completeness: key symptoms, exam details, and plan elements are captured when present.
+- Structure: exact SOAP section headers.
+- Restraint: missing information is marked as `Not documented`.
+- Edit burden: clinician should need light cleanup, not a rewrite.
 
-Aim for a small but varied set:
+## Automation Backlog
 
-- Sore throat / URI
-- Abdominal pain
-- UTI symptoms
-- Laceration follow-up
-- Rash / allergic reaction
-- Fever in child
-- Chest pain sent to ED
-- Work note / return-to-work visit
-- Medication refill request
-- Visit with sparse documentation where the model must avoid guessing
+Automate in this order:
 
-## Pass / Fail Criteria For MVP
+1. `normalizeAiSettings`, provider configuration checks, and provider summary behavior.
+2. `normalizeEncounterState`, duplicate encounter handling, active encounter selection, and draft creation.
+3. Provider request payload construction using mocked `fetch`.
+4. Error parsing and provider response extraction.
+5. Side panel workflow smoke tests with browser automation.
+6. Fixture-based prompt regression checks.
 
-Treat a build as MVP-acceptable if:
+## MVP Acceptance Criteria
+
+Treat a build as acceptable for prototype continuation only if:
 
 - Encounter switching never mixes drafts between patients.
-- Closing an encounter always removes its stored local data.
-- Note generation succeeds on most happy-path cases with the configured provider.
-- The model follows SOAP formatting consistently.
-- Archived gold-set runs do not show obvious hallucination regressions.
-
-## What We Should Automate Next
-
-Once the workflow feels stable, the first automation work should be:
-
-1. Small unit tests around encounter storage normalization and prompt construction.
-2. Fixture-based regression tests that feed transcripts plus context into the prompt builder.
-3. A lightweight manual test checklist for provider setup and failure handling.
-4. Optional golden-set scoring scripts once we have enough archived cases to justify it.
+- Closing an encounter removes its stored local draft data.
+- Recording failure paths are clear and recoverable.
+- Note generation works with at least one configured provider.
+- The model follows the required SOAP format.
+- The docs and `OPERATING_PROCEDURES.md` match the behavior being shipped.

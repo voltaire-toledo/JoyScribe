@@ -1,8 +1,10 @@
 import { AudioService } from "../services/audioService.js";
 import {
+  AUTH_METHODS,
   DEFAULT_SYSTEM_PROMPT,
   PROVIDERS,
   getProviderSummary,
+  isSubscriptionAuthMethod,
   isProviderConfigured,
   loadAiSettings,
   normalizeAiSettings,
@@ -98,20 +100,22 @@ const els = {
   cancelSettingsBtn: /** @type {HTMLButtonElement} */ (document.getElementById("cancelSettingsBtn")),
   resetPromptBtn: /** @type {HTMLButtonElement} */ (document.getElementById("resetPromptBtn")),
   providerSelect: /** @type {HTMLSelectElement} */ (document.getElementById("providerSelect")),
+  openaiAuthMethodSelect: /** @type {HTMLSelectElement} */ (
+    document.getElementById("openaiAuthMethodSelect")
+  ),
   openaiApiKeyInput: /** @type {HTMLInputElement} */ (document.getElementById("openaiApiKeyInput")),
   openaiModelInput: /** @type {HTMLInputElement} */ (document.getElementById("openaiModelInput")),
   openaiBaseUrlInput: /** @type {HTMLInputElement} */ (document.getElementById("openaiBaseUrlInput")),
+  geminiAuthMethodSelect: /** @type {HTMLSelectElement} */ (
+    document.getElementById("geminiAuthMethodSelect")
+  ),
   geminiApiKeyInput: /** @type {HTMLInputElement} */ (document.getElementById("geminiApiKeyInput")),
   geminiModelInput: /** @type {HTMLInputElement} */ (document.getElementById("geminiModelInput")),
-  azureApiKeyInput: /** @type {HTMLInputElement} */ (document.getElementById("azureApiKeyInput")),
-  azureEndpointInput: /** @type {HTMLInputElement} */ (document.getElementById("azureEndpointInput")),
-  azureModelInput: /** @type {HTMLInputElement} */ (document.getElementById("azureModelInput")),
-  ollamaEndpointInput: /** @type {HTMLInputElement} */ (document.getElementById("ollamaEndpointInput")),
-  ollamaModelInput: /** @type {HTMLInputElement} */ (document.getElementById("ollamaModelInput")),
   systemPromptInput: /** @type {HTMLTextAreaElement} */ (document.getElementById("systemPromptInput"))
 };
 
 const providerFieldSections = Array.from(document.querySelectorAll("[data-provider-config]"));
+const authHelpMessages = Array.from(document.querySelectorAll("[data-auth-help]"));
 
 function getActiveEncounter() {
   return (
@@ -314,26 +318,24 @@ function setUiState(state) {
 }
 
 function isNetworkBlocked() {
-  return aiSettings.provider !== PROVIDERS.ollama && !navigator.onLine;
+  return !navigator.onLine;
 }
 
 function populateSettingsForm(settings) {
   const normalized = normalizeAiSettings(settings);
 
   els.providerSelect.value = normalized.provider;
+  els.openaiAuthMethodSelect.value = normalized.openai.authMethod;
   els.openaiApiKeyInput.value = normalized.openai.apiKey;
   els.openaiModelInput.value = normalized.openai.model;
   els.openaiBaseUrlInput.value = normalized.openai.baseUrl;
+  els.geminiAuthMethodSelect.value = normalized.gemini.authMethod;
   els.geminiApiKeyInput.value = normalized.gemini.apiKey;
   els.geminiModelInput.value = normalized.gemini.model;
-  els.azureApiKeyInput.value = normalized.azure.apiKey;
-  els.azureEndpointInput.value = normalized.azure.endpoint;
-  els.azureModelInput.value = normalized.azure.model;
-  els.ollamaEndpointInput.value = normalized.ollama.endpoint;
-  els.ollamaModelInput.value = normalized.ollama.model;
   els.systemPromptInput.value = normalized.systemPrompt;
 
   syncProviderFieldVisibility();
+  syncAuthMethodVisibility();
 }
 
 function readSettingsFromForm() {
@@ -341,22 +343,15 @@ function readSettingsFromForm() {
     provider: els.providerSelect.value,
     systemPrompt: els.systemPromptInput.value,
     openai: {
+      authMethod: els.openaiAuthMethodSelect.value,
       apiKey: els.openaiApiKeyInput.value,
       model: els.openaiModelInput.value,
       baseUrl: els.openaiBaseUrlInput.value
     },
     gemini: {
+      authMethod: els.geminiAuthMethodSelect.value,
       apiKey: els.geminiApiKeyInput.value,
       model: els.geminiModelInput.value
-    },
-    azure: {
-      apiKey: els.azureApiKeyInput.value,
-      endpoint: els.azureEndpointInput.value,
-      model: els.azureModelInput.value
-    },
-    ollama: {
-      endpoint: els.ollamaEndpointInput.value,
-      model: els.ollamaModelInput.value
     }
   });
 }
@@ -367,6 +362,49 @@ function syncProviderFieldVisibility() {
   for (const section of providerFieldSections) {
     section.hidden = section.dataset.providerConfig !== provider;
   }
+
+  syncAuthMethodVisibility();
+}
+
+function syncAuthMethodVisibility() {
+  const provider = els.providerSelect.value;
+  const openaiUsesApiKey = els.openaiAuthMethodSelect.value === AUTH_METHODS.openaiApiKey;
+  const geminiUsesApiKey = els.geminiAuthMethodSelect.value === AUTH_METHODS.geminiApiKey;
+
+  els.openaiApiKeyInput.closest(".field").hidden =
+    provider === PROVIDERS.openai && !openaiUsesApiKey;
+  els.openaiBaseUrlInput.closest(".field").hidden =
+    provider === PROVIDERS.openai && !openaiUsesApiKey;
+  els.geminiApiKeyInput.closest(".field").hidden =
+    provider === PROVIDERS.gemini && !geminiUsesApiKey;
+
+  for (const message of authHelpMessages) {
+    const helpKind = message.dataset.authHelp;
+    message.hidden =
+      (helpKind !== "openai-subscription" ||
+        provider !== PROVIDERS.openai ||
+        els.openaiAuthMethodSelect.value !== AUTH_METHODS.chatgptSubscription) &&
+      (helpKind !== "gemini-subscription" ||
+        provider !== PROVIDERS.gemini ||
+        els.geminiAuthMethodSelect.value !== AUTH_METHODS.geminiSubscription);
+  }
+}
+
+function getSelectedSubscriptionAuthMessage() {
+  const provider = els.providerSelect.value;
+  const authMethod = provider === PROVIDERS.openai
+    ? els.openaiAuthMethodSelect.value
+    : els.geminiAuthMethodSelect.value;
+
+  return getSubscriptionAuthMessage(provider, authMethod);
+}
+
+function getSubscriptionAuthMessage(provider, authMethod) {
+  if (!isSubscriptionAuthMethod(provider, authMethod)) return "";
+
+  return provider === PROVIDERS.openai
+    ? "ChatGPT subscription forwarding is not implemented yet. Select OpenAI API key authentication for this prototype."
+    : "Gemini subscription forwarding is not implemented yet. Select Gemini API key authentication for this prototype.";
 }
 
 function openSettings() {
@@ -518,8 +556,9 @@ async function saveSettingsFromForm(event) {
   try {
     const nextSettings = readSettingsFromForm();
     aiSettings = await saveAiSettings(nextSettings);
+    const subscriptionMessage = getSelectedSubscriptionAuthMessage();
     closeSettings();
-    setAlert("");
+    setAlert(subscriptionMessage);
     render();
   } catch (error) {
     setAlert(error instanceof Error ? error.message : "Failed to save settings.");
@@ -536,7 +575,13 @@ async function handleStartRecording() {
   await flushActiveEncounterPersist();
 
   if (!isProviderConfigured(aiSettings)) {
-    setAlert("Configure an AI provider before recording.");
+    const activeConfig = aiSettings[aiSettings.provider];
+    const subscriptionMessage = getSubscriptionAuthMessage(
+      aiSettings.provider,
+      activeConfig?.authMethod
+    );
+
+    setAlert(subscriptionMessage || "Configure an AI provider before recording.");
     openSettings();
     setUiState("ERROR");
     return;
@@ -625,7 +670,15 @@ async function handleRecordButtonClick() {
   if (!settingsLoaded) return;
 
   if (!isProviderConfigured(aiSettings)) {
-    setAlert("Configure an AI provider and system instructions before recording.");
+    const activeConfig = aiSettings[aiSettings.provider];
+    const subscriptionMessage = getSubscriptionAuthMessage(
+      aiSettings.provider,
+      activeConfig?.authMethod
+    );
+
+    setAlert(
+      subscriptionMessage || "Configure an AI provider and system instructions before recording."
+    );
     openSettings();
     return;
   }
@@ -747,6 +800,8 @@ function bindEvents() {
     els.systemPromptInput.value = DEFAULT_SYSTEM_PROMPT;
   });
   els.providerSelect.addEventListener("change", syncProviderFieldVisibility);
+  els.openaiAuthMethodSelect.addEventListener("change", syncAuthMethodVisibility);
+  els.geminiAuthMethodSelect.addEventListener("change", syncAuthMethodVisibility);
   els.settingsForm.addEventListener("submit", (event) => {
     void saveSettingsFromForm(event);
   });

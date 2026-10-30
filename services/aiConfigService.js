@@ -7,9 +7,14 @@ export const AI_SETTINGS_STORAGE_KEY = "joyscribe-ai-settings";
 
 export const PROVIDERS = Object.freeze({
   openai: "openai",
-  gemini: "gemini",
-  azure: "azure",
-  ollama: "ollama"
+  gemini: "gemini"
+});
+
+export const AUTH_METHODS = Object.freeze({
+  chatgptSubscription: "chatgpt_subscription",
+  openaiApiKey: "openai_api_key",
+  geminiSubscription: "gemini_subscription",
+  geminiApiKey: "gemini_api_key"
 });
 
 export const DEFAULT_SYSTEM_PROMPT = `You are JoyScribe, a clinical documentation assistant for urgent care visits.
@@ -29,22 +34,15 @@ export const DEFAULT_AI_SETTINGS = Object.freeze({
   provider: PROVIDERS.openai,
   systemPrompt: DEFAULT_SYSTEM_PROMPT,
   openai: {
+    authMethod: AUTH_METHODS.openaiApiKey,
     apiKey: "",
     model: "gpt-4o-mini",
     baseUrl: "https://api.openai.com/v1"
   },
   gemini: {
+    authMethod: AUTH_METHODS.geminiApiKey,
     apiKey: "",
     model: "gemini-2.5-flash"
-  },
-  azure: {
-    apiKey: "",
-    endpoint: "",
-    model: ""
-  },
-  ollama: {
-    endpoint: "http://127.0.0.1:11434",
-    model: "llama3.1:8b"
   }
 });
 
@@ -83,7 +81,15 @@ function storageSet(value) {
 }
 
 function normalizeOpenAiConfig(config = {}) {
+  const supportedAuthMethods = [
+    AUTH_METHODS.chatgptSubscription,
+    AUTH_METHODS.openaiApiKey
+  ];
+
   return {
+    authMethod: supportedAuthMethods.includes(config.authMethod)
+      ? config.authMethod
+      : DEFAULT_AI_SETTINGS.openai.authMethod,
     apiKey: typeof config.apiKey === "string" ? config.apiKey.trim() : "",
     model: typeof config.model === "string" && config.model.trim()
       ? config.model.trim()
@@ -95,30 +101,19 @@ function normalizeOpenAiConfig(config = {}) {
 }
 
 function normalizeGeminiConfig(config = {}) {
+  const supportedAuthMethods = [
+    AUTH_METHODS.geminiSubscription,
+    AUTH_METHODS.geminiApiKey
+  ];
+
   return {
+    authMethod: supportedAuthMethods.includes(config.authMethod)
+      ? config.authMethod
+      : DEFAULT_AI_SETTINGS.gemini.authMethod,
     apiKey: typeof config.apiKey === "string" ? config.apiKey.trim() : "",
     model: typeof config.model === "string" && config.model.trim()
       ? config.model.trim()
       : DEFAULT_AI_SETTINGS.gemini.model
-  };
-}
-
-function normalizeAzureConfig(config = {}) {
-  return {
-    apiKey: typeof config.apiKey === "string" ? config.apiKey.trim() : "",
-    endpoint: typeof config.endpoint === "string" ? config.endpoint.trim() : "",
-    model: typeof config.model === "string" ? config.model.trim() : ""
-  };
-}
-
-function normalizeOllamaConfig(config = {}) {
-  return {
-    endpoint: typeof config.endpoint === "string" && config.endpoint.trim()
-      ? config.endpoint.trim()
-      : DEFAULT_AI_SETTINGS.ollama.endpoint,
-    model: typeof config.model === "string" && config.model.trim()
-      ? config.model.trim()
-      : DEFAULT_AI_SETTINGS.ollama.model
   };
 }
 
@@ -133,9 +128,7 @@ export function normalizeAiSettings(rawSettings = {}) {
       ? rawSettings.systemPrompt
       : DEFAULT_AI_SETTINGS.systemPrompt,
     openai: normalizeOpenAiConfig(rawSettings.openai),
-    gemini: normalizeGeminiConfig(rawSettings.gemini),
-    azure: normalizeAzureConfig(rawSettings.azure),
-    ollama: normalizeOllamaConfig(rawSettings.ollama)
+    gemini: normalizeGeminiConfig(rawSettings.gemini)
   };
 }
 
@@ -164,21 +157,19 @@ export function isProviderConfigured(settings) {
   const normalized = normalizeAiSettings(settings);
 
   if (normalized.provider === PROVIDERS.openai) {
-    return Boolean(normalized.openai.apiKey && normalized.openai.model);
+    if (normalized.openai.authMethod === AUTH_METHODS.openaiApiKey) {
+      return Boolean(normalized.openai.apiKey && normalized.openai.model);
+    }
+
+    return false;
   }
 
   if (normalized.provider === PROVIDERS.gemini) {
-    return Boolean(normalized.gemini.apiKey && normalized.gemini.model);
-  }
+    if (normalized.gemini.authMethod === AUTH_METHODS.geminiApiKey) {
+      return Boolean(normalized.gemini.apiKey && normalized.gemini.model);
+    }
 
-  if (normalized.provider === PROVIDERS.azure) {
-    return Boolean(
-      normalized.azure.apiKey && normalized.azure.endpoint && normalized.azure.model
-    );
-  }
-
-  if (normalized.provider === PROVIDERS.ollama) {
-    return Boolean(normalized.ollama.endpoint && normalized.ollama.model);
+    return false;
   }
 
   return false;
@@ -187,14 +178,36 @@ export function isProviderConfigured(settings) {
 export function getProviderDisplayName(provider) {
   if (provider === PROVIDERS.openai) return "OpenAI";
   if (provider === PROVIDERS.gemini) return "Google Gemini";
-  if (provider === PROVIDERS.azure) return "Azure OpenAI";
-  if (provider === PROVIDERS.ollama) return "Ollama";
   return "Unknown";
+}
+
+export function getAuthMethodDisplayName(provider, authMethod) {
+  if (provider === PROVIDERS.openai) {
+    if (authMethod === AUTH_METHODS.chatgptSubscription) return "ChatGPT subscription";
+    if (authMethod === AUTH_METHODS.openaiApiKey) return "OpenAI API key";
+  }
+
+  if (provider === PROVIDERS.gemini) {
+    if (authMethod === AUTH_METHODS.geminiSubscription) return "Gemini subscription";
+    if (authMethod === AUTH_METHODS.geminiApiKey) return "Gemini API key";
+  }
+
+  return "Unknown auth method";
+}
+
+export function isSubscriptionAuthMethod(provider, authMethod) {
+  return (
+    (provider === PROVIDERS.openai && authMethod === AUTH_METHODS.chatgptSubscription) ||
+    (provider === PROVIDERS.gemini && authMethod === AUTH_METHODS.geminiSubscription)
+  );
 }
 
 export function getProviderSummary(settings) {
   const normalized = normalizeAiSettings(settings);
   const activeConfig = getActiveProviderConfig(normalized);
+  const authMethod = activeConfig?.authMethod || "";
   const modelName = activeConfig?.model || "Model not set";
-  return `${getProviderDisplayName(normalized.provider)} · ${modelName}`;
+  const authName = getAuthMethodDisplayName(normalized.provider, authMethod);
+
+  return `${getProviderDisplayName(normalized.provider)} · ${authName} · ${modelName}`;
 }

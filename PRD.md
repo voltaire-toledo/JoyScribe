@@ -6,7 +6,7 @@
 - Working title in code: JoyScribe-UC
 - Product type: Chrome extension with a side panel workflow
 - Primary use case: Assist urgent care clinicians by turning encounter audio into an editable SOAP note draft
-- Document status: Draft v1.1 updated for provider-backed note generation as of 2026-03-30
+- Document status: Draft v1.3 updated for current authentication scope as of 2026-06-06
 
 ## 2. Current Reality
 
@@ -17,20 +17,23 @@ What exists today:
 - A Manifest V3 Chrome extension that opens a side panel UI
 - Microphone recording in-browser via `MediaRecorder`
 - Mock transcription from recorded audio
-- Provider-backed SOAP note generation using configurable OpenAI, Google Gemini, Azure OpenAI, or Ollama models
-- A settings flow for provider selection, model configuration, local credential storage, and editable system instructions
+- Provider-backed SOAP note generation using configurable OpenAI or Google Gemini API-key authentication
+- A settings flow for provider selection, authentication method selection, model configuration, local credential storage, and editable system instructions
 - An editable note field plus transcript disclosure panel
 - Copy-to-clipboard workflow for transferring the generated note elsewhere
 - Local encounter draft storage in browser extension storage for open encounters, with no backend persistence
+- A documented development rule set in `OPERATING_PROCEDURES.md`
 
 What does not exist today:
 
 - Real speech-to-text
-- Authentication
+- Production authentication
+- Secure ChatGPT subscription or Gemini subscription prompt forwarding
 - EHR integrations
 - Structured patient/context capture
 - Auditing, logging, admin controls, or enterprise deployment features
 - HIPAA-grade security/compliance implementation
+- Automated tests
 
 ## 3. Product Vision
 
@@ -169,7 +172,9 @@ JoyScribe should reduce time-to-draft while keeping clinicians responsible for r
 ### Note Generation
 
 - The system must generate a SOAP-formatted draft from encounter audio.
-- The system must support configurable note generation providers, initially OpenAI, Google Gemini, Azure OpenAI, and Ollama.
+- The system must support configurable note generation providers, initially OpenAI and Google Gemini.
+- The system must expose four authentication choices for note forwarding: ChatGPT subscription, OpenAI API key, Gemini subscription, and Gemini API key.
+- The system must block subscription-based forwarding until a secure auth handoff and backend forwarding path are implemented.
 - The system must allow the user to inspect and edit the system instructions sent to the selected model.
 - The system should preserve clinically relevant structure: chief complaint, HPI, ROS, objective findings, assessment, and plan.
 - The system must surface generation failures clearly and allow retry.
@@ -258,16 +263,16 @@ JoyScribe should reduce time-to-draft while keeping clinicians responsible for r
 ### Phase 0: Prototype Stabilization
 
 - Tighten UI states, permission errors, and empty-state handling
-- Add installation, provider setup, and developer documentation
+- Maintain installation, provider setup, testing, and operating procedure documentation
 - Add local test coverage for provider settings and request shaping
-- Decide how secrets should be handled beyond local extension storage
+- Decide how secrets and subscription auth handoffs should be handled beyond local extension storage
 
 ### Phase 1: Functional MVP
 
 - Integrate real STT provider
 - Improve transcript-to-note traceability
 - Harden provider request flow, timeouts, and retries
-- Add secure request flow and secrets handling
+- Add secure request flow, secrets handling, and subscription forwarding
 - Add configurable note templates for urgent care
 
 ### Phase 2: Pilot Readiness
@@ -290,16 +295,19 @@ To move from prototype to execution, the next decisions should be:
 1. Confirm the product positioning: browser-based urgent care scribe versus broader medical documentation assistant.
 2. Confirm MVP boundary: copy-to-clipboard prototype versus integrated clinical pilot tool.
 3. Choose the first real STT provider and define the supported provider quality bar for note generation.
-4. Define privacy/compliance architecture before handling real PHI.
+4. Define privacy/compliance architecture and subscription forwarding design before handling real PHI.
 5. Set a measurable usefulness target for pilot notes.
 
 ## 20. Appendix: Codebase Evidence
 
 The current PRD is grounded in the repository's present implementation:
 
-- The extension is defined as a Chrome MV3 side panel in [manifest.json](/Users/me/CODE/gh-me/JoyScribe/manifest.json).
-- Recording behavior is implemented in [audioService.js](/Users/me/CODE/gh-me/JoyScribe/services/audioService.js).
-- Mock transcription is implemented in [mockAiService.js](/Users/me/CODE/gh-me/JoyScribe/services/mockAiService.js).
-- Provider settings and editable system instructions are implemented in [aiConfigService.js](/Users/me/CODE/gh-me/JoyScribe/services/aiConfigService.js).
-- Provider-backed note generation is implemented in [aiProviderService.js](/Users/me/CODE/gh-me/JoyScribe/services/aiProviderService.js).
-- The user workflow and ephemeral messaging are implemented in [sidepanel.js](/Users/me/CODE/gh-me/JoyScribe/sidepanel/sidepanel.js) and [sidepanel.html](/Users/me/CODE/gh-me/JoyScribe/sidepanel/sidepanel.html).
+- The extension is defined as a Chrome MV3 side panel in `manifest.json`.
+- Side panel activation is wired in `background/background.js`.
+- Recording behavior is implemented in `services/audioService.js`.
+- Mock transcription is implemented in `services/mockAiService.js`.
+- Provider settings and editable system instructions are implemented in `services/aiConfigService.js`.
+- Provider-backed note generation is implemented in `services/aiProviderService.js`.
+- Open encounter draft persistence is implemented in `services/encounterStorageService.js`.
+- The user workflow and messaging are implemented in `sidepanel/sidepanel.js` and `sidepanel/sidepanel.html`.
+- Development rules and standard operating procedures are maintained in `OPERATING_PROCEDURES.md`.

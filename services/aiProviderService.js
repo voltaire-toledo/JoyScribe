@@ -1,4 +1,5 @@
 import {
+  AUTH_METHODS,
   PROVIDERS,
   getActiveProviderConfig,
   normalizeAiSettings
@@ -102,18 +103,6 @@ function extractGeminiText(responseJson) {
   throw new Error("Gemini returned no usable response text.");
 }
 
-function extractOllamaText(responseJson) {
-  if (typeof responseJson?.message?.content === "string") {
-    return responseJson.message.content.trim();
-  }
-
-  if (typeof responseJson?.response === "string") {
-    return responseJson.response.trim();
-  }
-
-  throw new Error("Ollama returned no usable response text.");
-}
-
 async function parseErrorResponse(response) {
   try {
     const json = await response.json();
@@ -154,15 +143,6 @@ function normalizeBaseUrl(baseUrl) {
   return baseUrl.replace(/\/+$/, "");
 }
 
-function normalizeAzureBaseUrl(endpoint) {
-  const trimmed = normalizeBaseUrl(endpoint.trim());
-
-  if (trimmed.endsWith("/openai/v1")) return trimmed;
-  if (trimmed.endsWith("/openai")) return `${trimmed}/v1`;
-
-  return `${trimmed}/openai/v1`;
-}
-
 async function generateWithOpenAiLikeProvider({ baseUrl, apiKey, model, systemPrompt, userPrompt }) {
   const payload = {
     model,
@@ -185,35 +165,6 @@ async function generateWithOpenAiLikeProvider({ baseUrl, apiKey, model, systemPr
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(payload)
-  });
-
-  return parseStructuredJson(extractOpenAiText(responseJson));
-}
-
-async function generateWithAzure({ config, systemPrompt, userPrompt }) {
-  const payload = {
-    model: config.model,
-    instructions: systemPrompt,
-    input: userPrompt,
-    store: false,
-    temperature: 0.2,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "joyscribe_note",
-        strict: true,
-        schema: NOTE_SCHEMA
-      }
-    }
-  };
-
-  const responseJson = await postJson(`${normalizeAzureBaseUrl(config.endpoint)}/responses`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": config.apiKey
     },
     body: JSON.stringify(payload)
   });
@@ -254,31 +205,6 @@ async function generateWithGemini({ config, systemPrompt, userPrompt }) {
   return parseStructuredJson(extractGeminiText(responseJson));
 }
 
-async function generateWithOllama({ config, systemPrompt, userPrompt }) {
-  const payload = {
-    model: config.model,
-    stream: false,
-    format: NOTE_SCHEMA,
-    options: {
-      temperature: 0.2
-    },
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ]
-  };
-
-  const responseJson = await postJson(`${normalizeBaseUrl(config.endpoint)}/api/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(payload)
-  });
-
-  return parseStructuredJson(extractOllamaText(responseJson));
-}
-
 export async function generateSoapNoteFromTranscript({ transcript, meta = {}, settings }) {
   const normalizedSettings = normalizeAiSettings(settings);
   const activeConfig = getActiveProviderConfig(normalizedSettings);
@@ -288,6 +214,12 @@ export async function generateSoapNoteFromTranscript({ transcript, meta = {}, se
   let result;
 
   if (normalizedSettings.provider === PROVIDERS.openai) {
+    if (activeConfig.authMethod === AUTH_METHODS.chatgptSubscription) {
+      throw new Error(
+        "ChatGPT subscription forwarding is not implemented yet. Select OpenAI API key authentication for this prototype."
+      );
+    }
+
     result = await generateWithOpenAiLikeProvider({
       baseUrl: activeConfig.baseUrl,
       apiKey: activeConfig.apiKey,
@@ -296,19 +228,13 @@ export async function generateSoapNoteFromTranscript({ transcript, meta = {}, se
       userPrompt
     });
   } else if (normalizedSettings.provider === PROVIDERS.gemini) {
+    if (activeConfig.authMethod === AUTH_METHODS.geminiSubscription) {
+      throw new Error(
+        "Gemini subscription forwarding is not implemented yet. Select Gemini API key authentication for this prototype."
+      );
+    }
+
     result = await generateWithGemini({
-      config: activeConfig,
-      systemPrompt,
-      userPrompt
-    });
-  } else if (normalizedSettings.provider === PROVIDERS.azure) {
-    result = await generateWithAzure({
-      config: activeConfig,
-      systemPrompt,
-      userPrompt
-    });
-  } else if (normalizedSettings.provider === PROVIDERS.ollama) {
-    result = await generateWithOllama({
       config: activeConfig,
       systemPrompt,
       userPrompt
