@@ -1,0 +1,8 @@
+
+# YABA Scaffold exceptions
+!AGENTS.md
+!.ai/**
+!.agents/**
+!.claude/**
+!backlog.config.yml
+
